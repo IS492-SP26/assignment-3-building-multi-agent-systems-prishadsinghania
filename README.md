@@ -29,6 +29,8 @@ Starter scaffold for a multi-agent deep-research assistant on HCI topics. The re
 │   ├── example_queries.json           # Primary evaluation dataset
 │   └── test_queries_sample.json       # Alternate/fallback dataset
 ├── docs/
+│   ├── evaluation_batch_summary.txt   # Committed evaluation aggregate (for graders)
+│   ├── evaluation_batch_summary.json # Same, machine-readable
 │   └── TODO_AUDIT_AND_SOLUTIONS.md    # TODO inventory + guidance notes
 ├── config.yaml
 ├── requirements.txt
@@ -168,7 +170,12 @@ python main.py --mode evaluate
 
 ## Grader-Facing Artifacts
 
-The following artifacts are generated and ready for inspection:
+Committed in repo (no secrets):
+
+- `docs/evaluation_batch_summary.txt`: aggregate batch evaluation metrics for a full 10-query run.
+- `docs/evaluation_batch_summary.json`: same summary in JSON.
+
+Generated locally after runs (`outputs/` is gitignored — run evaluation to produce full detail):
 
 - `outputs/sample_session.json`: full exported multi-agent session transcript (query, agent traces, metadata).
 - `outputs/sample_output.md`: synthesized answer artifact with source links.

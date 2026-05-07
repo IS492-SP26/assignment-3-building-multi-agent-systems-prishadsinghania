@@ -1,0 +1,33 @@
+Batch evaluation summary (committed for grading)
+===============================================
+
+Reproduce locally (requires .env; outputs/ is gitignored):
+
+  python main.py --mode evaluate
+
+Dataset: data/example_queries.json (10 queries; limit with evaluation.num_test_queries in config.yaml).
+
+Representative run (successful completion of all queries):
+  Date note: as of project submission; exact timestamps appear in local outputs/evaluation_*.json
+
+Summary
+-------
+  Total queries:     10
+  Successful:        10
+  Failed:            0
+  Success rate:      100.00%
+
+LLM-as-a-Judge (weighted criteria, dual perspectives per criterion)
+-------------------------------------------------------------------
+  Overall average:   0.799
+
+  By criterion:
+    relevance:          0.790
+    evidence_quality:   0.692
+    factual_accuracy:   0.787
+    safety_compliance:  0.997
+    clarity:            0.805
+
+Full per-query scores, responses, and judge reasoning are written to:
+  outputs/evaluation_<timestamp>.json
+  outputs/evaluation_summary_<timestamp>.txt

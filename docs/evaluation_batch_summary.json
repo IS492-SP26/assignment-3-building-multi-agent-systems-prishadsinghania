@@ -1,0 +1,28 @@
+{
+  "description": "Aggregate LLM-as-a-Judge results for one full batch run on data/example_queries.json (10 queries). Full detail is written under outputs/ locally (gitignored).",
+  "command": "python main.py --mode evaluate",
+  "dataset": "data/example_queries.json",
+  "summary": {
+    "total_queries": 10,
+    "successful": 10,
+    "failed": 0,
+    "success_rate": 1.0
+  },
+  "scores": {
+    "overall_average": 0.799,
+    "by_criterion": {
+      "relevance": 0.79,
+      "evidence_quality": 0.692,
+      "factual_accuracy": 0.787,
+      "safety_compliance": 0.997,
+      "clarity": 0.805
+    }
+  },
+  "judge": {
+    "perspectives_per_criterion": [
+      "strict_rubric",
+      "end_user_readability"
+    ],
+    "criteria_config": "config.yaml -> evaluation.criteria"
+  }
+}
