@@ -204,11 +204,27 @@ class CLI:
             print(f"  • Messages exchanged: {metadata.get('num_messages', 0)}")
             print(f"  • Sources gathered: {metadata.get('num_sources', 0)}")
             print(f"  • Agents involved: {', '.join(metadata.get('agents_involved', []))}")
-            # TODO: Display safety events and refusal/sanitization status here
-            # Suggested implementation:
-            # - Read safety metadata returned by the orchestrator
-            # - Print which policy category was triggered
-            # - Show whether the response was refused or sanitized
+            safety_action = metadata.get("safety_action", "allow")
+            print(f"  • Safety action: {safety_action}")
+            if metadata.get("refused"):
+                print("  • Safety status: Response refused by policy")
+            elif metadata.get("sanitized"):
+                print("  • Safety status: Response sanitized")
+
+            safety_events = metadata.get("safety_events", [])
+            if safety_events:
+                print("\n" + "-" * 70)
+                print("🛡️ SAFETY EVENTS")
+                print("-" * 70)
+                for idx, event in enumerate(safety_events[-5:], 1):
+                    reasons = [v.get("reason", "Unknown") for v in event.get("violations", [])]
+                    print(
+                        f"  {idx}. {event.get('type', 'unknown')} | "
+                        f"action={event.get('action', 'allow')} | "
+                        f"safe={event.get('safe', True)}"
+                    )
+                    for reason in reasons:
+                        print(f"     - {reason}")
 
         # Display conversation summary if verbose mode
         if self._should_show_traces():

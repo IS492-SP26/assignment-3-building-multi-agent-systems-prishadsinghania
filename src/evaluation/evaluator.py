@@ -55,6 +55,7 @@ class SystemEvaluator:
         eval_config = config.get("evaluation", {})
         self.enabled = eval_config.get("enabled", True)
         self.max_test_queries = eval_config.get("num_test_queries", None)
+        self.query_timeout_seconds = int(eval_config.get("query_timeout_seconds", 180))
         
         # Initialize judge (passes config to load judge model settings and criteria)
         self.judge = LLMJudge(config)
@@ -97,16 +98,30 @@ class SystemEvaluator:
         # Evaluate each query
         for i, test_case in enumerate(test_queries, 1):
             self.logger.info(f"Evaluating query {i}/{len(test_queries)}")
+            print(f"[evaluation] Running query {i}/{len(test_queries)}...")
 
             try:
-                result = await self._evaluate_query(test_case)
+                result = await asyncio.wait_for(
+                    self._evaluate_query(test_case),
+                    timeout=self.query_timeout_seconds,
+                )
                 self.results.append(result)
+                print(f"[evaluation] Completed query {i}/{len(test_queries)}")
+            except asyncio.TimeoutError:
+                timeout_msg = f"Timed out after {self.query_timeout_seconds}s"
+                self.logger.error(f"Error evaluating query {i}: {timeout_msg}")
+                self.results.append({
+                    "query": test_case.get("query", ""),
+                    "error": timeout_msg,
+                })
+                print(f"[evaluation] Query {i}/{len(test_queries)} timed out")
             except Exception as e:
                 self.logger.error(f"Error evaluating query {i}: {e}")
                 self.results.append({
                     "query": test_case.get("query", ""),
                     "error": str(e)
                 })
+                print(f"[evaluation] Query {i}/{len(test_queries)} failed: {e}")
 
         # Aggregate results
         report = self._generate_report()
@@ -138,10 +153,11 @@ class SystemEvaluator:
                 # Call orchestrator's process_query method
                 # TODO: YOUR CODE HERE
                 # Need to implement this in their orchestrator
-                response_data = self.orchestrator.process_query(query)
-                
-                # If process_query is async, use:
-                # response_data = await self.orchestrator.process_query(query)
+                process_fn = getattr(self.orchestrator, "process_query")
+                if inspect.iscoroutinefunction(process_fn):
+                    response_data = await process_fn(query)
+                else:
+                    response_data = process_fn(query)
                 
             except Exception as e:
                 self.logger.error(f"Error processing query through orchestrator: {e}")
@@ -165,17 +181,20 @@ class SystemEvaluator:
         evaluation = await self.judge.evaluate(
             query=query,
             response=response_data.get("response", ""),
-            sources=response_data.get("metadata", {}).get("sources", []),
+            sources=response_data.get("citations", []) or response_data.get("metadata", {}).get("sources", []),
             ground_truth=ground_truth
         )
-
-        return {
+        result = {
             "query": query,
             "response": response_data.get("response", ""),
             "evaluation": evaluation,
             "metadata": response_data.get("metadata", {}),
             "ground_truth": ground_truth
         }
+        # Treat orchestrator/runtime errors as failed cases for honest reporting.
+        if response_data.get("error") or response_data.get("metadata", {}).get("error"):
+            result["error"] = response_data.get("error", "orchestrator_error")
+        return result
 
     def _load_test_queries(self, path: str) -> List[Dict[str, Any]]:
         """

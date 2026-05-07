@@ -22,7 +22,9 @@ from typing import Dict, Any, List, Optional
 import logging
 import json
 import os
+import re
 from groq import Groq
+from openai import OpenAI
 
 
 class LLMJudge:
@@ -55,13 +57,31 @@ class LLMJudge:
         # Each criterion has: name, weight, description
         self.criteria = config.get("evaluation", {}).get("criteria", [])
         
-        # Initialize Groq client (similar to what we tried in Lab 5)
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            self.logger.warning("GROQ_API_KEY not found in environment")
-        self.client = Groq(api_key=api_key) if api_key else None
+        self.provider = self.model_config.get("provider", "groq").lower()
+        self.client = None
+        self._initialize_client()
         
         self.logger.info(f"LLMJudge initialized with {len(self.criteria)} criteria")
+
+    def _initialize_client(self):
+        if self.provider == "groq":
+            api_key = os.getenv("GROQ_API_KEY")
+            if not api_key:
+                self.logger.warning("GROQ_API_KEY not found in environment")
+                return
+            self.client = Groq(api_key=api_key)
+            return
+
+        if self.provider in {"openai", "vllm"}:
+            api_key = os.getenv("OPENAI_API_KEY")
+            base_url = os.getenv("OPENAI_BASE_URL")
+            if not api_key:
+                self.logger.warning("OPENAI_API_KEY not found in environment")
+                return
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            return
+
+        self.logger.warning(f"Unsupported judge provider: {self.provider}")
  
     async def evaluate(
         self,
@@ -118,6 +138,11 @@ class LLMJudge:
 
             results["criterion_scores"][criterion_name] = score
             weighted_score += score.get("score", 0.0) * weight
+            results["feedback"].append({
+                "criterion": criterion_name,
+                "reasoning": score.get("reasoning", ""),
+                "perspective_scores": score.get("perspective_scores", {}),
+            })
 
         # Calculate overall score
         results["overall_score"] = weighted_score / total_weight if total_weight > 0 else 0.0
@@ -150,25 +175,32 @@ class LLMJudge:
         criterion_name = criterion.get("name", "unknown")
         description = criterion.get("description", "")
 
-        # Create judge prompt
-        prompt = self._create_judge_prompt(
-            criterion_name=criterion_name,
-            description=description,
-            query=query,
-            response=response,
-            sources=sources,
-            ground_truth=ground_truth
-        )
-
-        # Call LLM API to get judgment
+        # Use two independent judging prompts/perspectives and average them.
         try:
-            judgment = await self._call_judge_llm(prompt)
-            score_value, reasoning = self._parse_judgment(judgment)
+            perspective_scores = {}
+            perspective_reasoning = []
+            for perspective in ["strict_rubric", "end_user_readability"]:
+                prompt = self._create_judge_prompt(
+                    criterion_name=criterion_name,
+                    description=description,
+                    query=query,
+                    response=response,
+                    sources=sources,
+                    ground_truth=ground_truth,
+                    perspective=perspective,
+                )
+                judgment = await self._call_judge_llm(prompt)
+                parsed_score, parsed_reasoning = self._parse_judgment(judgment)
+                perspective_scores[perspective] = parsed_score
+                perspective_reasoning.append(f"{perspective}: {parsed_reasoning}")
+
+            score_value = sum(perspective_scores.values()) / max(len(perspective_scores), 1)
             
             score = {
                 "score": score_value,  # 0-1 scale
-                "reasoning": reasoning,
-                "criterion": criterion_name
+                "reasoning": " | ".join(perspective_reasoning),
+                "criterion": criterion_name,
+                "perspective_scores": perspective_scores,
             }
         except Exception as e:
             self.logger.error(f"Error judging criterion {criterion_name}: {e}")
@@ -187,7 +219,8 @@ class LLMJudge:
         query: str,
         response: str,
         sources: Optional[List[Dict[str, Any]]],
-        ground_truth: Optional[str]
+        ground_truth: Optional[str],
+        perspective: str = "strict_rubric",
     ) -> str:
         """
         Create a prompt for the judge LLM.
@@ -197,9 +230,16 @@ class LLMJudge:
         - Include clear scoring rubric
         - Provide examples if helpful
         """
+        perspective_instruction = {
+            "strict_rubric": "Use strict academic grading. Penalize unsupported claims heavily.",
+            "end_user_readability": "Use practical user-facing quality lens. Reward clarity and usefulness.",
+        }.get(perspective, "Evaluate fairly and consistently.")
+
         prompt = f"""You are an expert evaluator. Evaluate the following response based on the criterion: {criterion_name}.
 
 Criterion Description: {description}
+Perspective: {perspective}
+Instruction: {perspective_instruction}
 
 Query: {query}
 
@@ -231,11 +271,11 @@ Provide your evaluation in the following JSON format:
         Uses model configuration from config.yaml (models.judge section).
         """
         if not self.client:
-            raise ValueError("Groq client not initialized. Check GROQ_API_KEY environment variable.")
+            raise ValueError("Judge client not initialized. Check configured provider API keys.")
         
         try:
             # Load model settings from config.yaml (models.judge)
-            model_name = self.model_config.get("name", "llama-3.1-8b-instant")
+            model_name = os.getenv("OPENAI_MODEL") or self.model_config.get("name", "llama-3.1-8b-instant")
             temperature = self.model_config.get("temperature", 0.3)
             max_tokens = self.model_config.get("max_tokens", 1024)
             
@@ -282,6 +322,11 @@ Provide your evaluation in the following JSON format:
             if judgment_clean.endswith("```"):
                 judgment_clean = judgment_clean[:-3]
             judgment_clean = judgment_clean.strip()
+
+            if not judgment_clean.startswith("{"):
+                match = re.search(r"\{[\s\S]*\}", judgment_clean)
+                if match:
+                    judgment_clean = match.group(0)
 
             # Parse JSON
             result = json.loads(judgment_clean)

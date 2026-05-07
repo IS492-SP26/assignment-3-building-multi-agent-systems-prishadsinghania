@@ -16,6 +16,7 @@ import asyncio
 from typing import Dict, Any, List, Optional
 
 from src.agents.autogen_agents import create_research_team
+from src.guardrails.safety_manager import SafetyManager
 
 
 class AutoGenOrchestrator:
@@ -40,6 +41,7 @@ class AutoGenOrchestrator:
         # Create the research team
         self.logger.info("Creating research team...")
         self.team = create_research_team(config)
+        self.safety_manager = SafetyManager(config.get("safety", {}))
         
         self.logger.info("Research team created successfully")
         
@@ -65,8 +67,11 @@ class AutoGenOrchestrator:
         
         try:
             # Run the async query processing
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
                 # If we're already in an async context, create a new loop
                 import concurrent.futures
                 with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -75,7 +80,7 @@ class AutoGenOrchestrator:
                         self._process_query_async(query, max_rounds)
                     ).result()
             else:
-                result = loop.run_until_complete(self._process_query_async(query, max_rounds))
+                result = asyncio.run(self._process_query_async(query, max_rounds))
             
             self.logger.info("Query processing complete")
             return result
@@ -101,8 +106,28 @@ class AutoGenOrchestrator:
         Returns:
             Dictionary containing results
         """
+        input_safety = self.safety_manager.check_input_safety(query)
+        if not input_safety.get("safe", True):
+            refusal_message = self.config.get("safety", {}).get("on_violation", {}).get(
+                "message",
+                "I cannot process this request due to safety policies.",
+            )
+            return {
+                "query": query,
+                "response": refusal_message,
+                "conversation_history": [],
+                "metadata": {
+                    "num_messages": 0,
+                    "num_sources": 0,
+                    "agents_involved": [],
+                    "safety_events": self.safety_manager.get_safety_events(),
+                    "safety_action": input_safety.get("action", "refuse"),
+                    "refused": True,
+                },
+            }
+
         # Create task message
-        task_message = f"""Research Query: {query}
+        task_message = f"""Research Query: {input_safety.get("query", query)}
 
 Please work together to answer this query comprehensively:
 1. Planner: Create a research plan
@@ -111,11 +136,14 @@ Please work together to answer this query comprehensively:
 4. Critic: Evaluate the quality and provide feedback"""
         
         # Run the team
-        result = await self.team.run(task=task_message)
+        # Create a fresh team for the active event loop to avoid
+        # cross-loop queue binding errors in async/sync mixed runtimes.
+        team = create_research_team(self.config)
+        result = await team.run(task=task_message)
         
         # Extract conversation history
         messages = []
-        async for message in result.messages:
+        for message in result.messages:
             msg_dict = {
                 "source": message.source,
                 "content": message.content if hasattr(message, 'content') else str(message),
@@ -135,9 +163,17 @@ Please work together to answer this query comprehensively:
         if not final_response and messages:
             final_response = messages[-1].get("content", "")
         
-        return self._extract_results(query, messages, final_response)
+        output_safety = self.safety_manager.check_output_safety(final_response)
+        final_output = output_safety.get("response", final_response)
+        return self._extract_results(query, messages, final_output, output_safety)
 
-    def _extract_results(self, query: str, messages: List[Dict[str, Any]], final_response: str = "") -> Dict[str, Any]:
+    def _extract_results(
+        self,
+        query: str,
+        messages: List[Dict[str, Any]],
+        final_response: str = "",
+        output_safety: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Extract structured results from the conversation history.
 
@@ -188,6 +224,10 @@ Please work together to answer this query comprehensively:
                 "research_findings": research_findings,
                 "critique": critique,
                 "agents_involved": list(set([msg.get("source", "") for msg in messages])),
+                "safety_events": self.safety_manager.get_safety_events(),
+                "safety_action": (output_safety or {}).get("action", "allow"),
+                "refused": (output_safety or {}).get("action") == "refuse",
+                "sanitized": (output_safety or {}).get("action") == "sanitize",
             }
         }
 

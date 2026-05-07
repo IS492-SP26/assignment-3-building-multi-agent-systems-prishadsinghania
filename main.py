@@ -32,6 +32,7 @@ async def run_evaluation():
     import yaml
     from dotenv import load_dotenv
     from src.autogen_orchestrator import AutoGenOrchestrator
+    from src.evaluation.evaluator import SystemEvaluator
     
     # Load environment variables
     load_dotenv()
@@ -44,32 +45,22 @@ async def run_evaluation():
     print("Initializing AutoGen orchestrator...")
     orchestrator = AutoGenOrchestrator(config)
     
-    # For now, run a simple test query
-    # TODO: Integrate with SystemEvaluator for full evaluation
-    # Suggested implementation:
-    # - Import SystemEvaluator from src/evaluation/evaluator.py
-    # - Load test queries from data/example_queries.json
-    # - Run batch evaluation and print/save the report summary
+    evaluator = SystemEvaluator(config, orchestrator=orchestrator)
+    report = await evaluator.evaluate_system("data/example_queries.json")
+
     print("\n" + "=" * 70)
-    print("RUNNING TEST QUERY")
+    print("EVALUATION SUMMARY")
     print("=" * 70)
-    
-    test_query = "What are the key principles of accessible user interface design?"
-    print(f"\nQuery: {test_query}\n")
-    
-    result = orchestrator.process_query(test_query)
-    
-    print("\n" + "=" * 70)
-    print("RESULTS")
-    print("=" * 70)
-    print(f"\nResponse:\n{result.get('response', 'No response generated')}")
-    print(f"\nMetadata:")
-    print(f"  - Messages: {result.get('metadata', {}).get('num_messages', 0)}")
-    print(f"  - Sources: {result.get('metadata', {}).get('num_sources', 0)}")
-    
-    print("\n" + "=" * 70)
-    print("Note: Full evaluation with SystemEvaluator can be implemented")
-    print("=" * 70)
+    summary = report.get("summary", {})
+    scores = report.get("scores", {})
+    print(f"Total Queries: {summary.get('total_queries', 0)}")
+    print(f"Successful: {summary.get('successful', 0)}")
+    print(f"Failed: {summary.get('failed', 0)}")
+    print(f"Success Rate: {summary.get('success_rate', 0.0):.2%}")
+    print(f"Overall Average Score: {scores.get('overall_average', 0.0):.3f}")
+    print("\nScores by Criterion:")
+    for criterion, score in scores.get("by_criterion", {}).items():
+        print(f"  - {criterion}: {score:.3f}")
 
 
 def run_autogen():

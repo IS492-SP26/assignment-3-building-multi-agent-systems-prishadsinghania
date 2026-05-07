@@ -209,6 +209,9 @@ __marimo__/
 # Assignment-specific
 logs/
 *.log
+# Local docs / Office temp (do not commit secrets or lock files)
+*.docx
+~$*
 data/*.json
 data/*.csv
 !data/example_queries.json

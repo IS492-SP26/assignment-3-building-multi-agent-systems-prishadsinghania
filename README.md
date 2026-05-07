@@ -33,6 +33,8 @@ Starter scaffold for a multi-agent deep-research assistant on HCI topics. The re
 ├── config.yaml
 ├── requirements.txt
 ├── .env.example
+├── 1.png                              # Streamlit demo screenshot (see Running)
+├── 2.png                              # Streamlit demo screenshot (see Running)
 ├── example_autogen.py
 └── main.py
 ```
@@ -104,23 +106,83 @@ python main.py --mode web
 streamlit run src/ui/streamlit_app.py
 ```
 
+#### Streamlit demo screenshots
+
+These show the web UI with agent traces and safety log enabled, plus citations, sources, and safety status.
+
+![Streamlit: query, evaluation, and sidebar traces/safety](1.png)
+
+![Streamlit: citations, metrics, passed safety checks, traces, and safety log](2.png)
+
 ### Batch evaluation scaffold
 
 ```bash
 python main.py --mode evaluate
 ```
 
-By default, this path only runs a simple test query until students complete the evaluation TODOs in `src/evaluation/` and wire them through `main.py`.
+This runs the full `SystemEvaluator` on `data/example_queries.json` (see `evaluation.num_test_queries` in `config.yaml`) and writes reports under `outputs/`.
 
-## Assignment Checklist (What Students Still Need To Complete)
+## Assignment Checklist (Implemented)
 
-- [ ] Finalize agent prompts/roles and end-to-end orchestration behavior.
-- [ ] Finish tool integration and evidence formatting.
-- [ ] Complete safety/guardrail logic and connect it to runtime flow.
-- [ ] Surface safety outcomes clearly in the UI.
-- [ ] Finish LLM-as-a-Judge scoring and batch evaluation reporting.
-- [ ] Ensure CLI/web interfaces show traces and citations clearly.
-- [ ] Document reproducible demo steps and representative outputs.
+- [x] Finalized multi-agent roles (Planner, Researcher, Writer, Critic) and orchestration.
+- [x] Wired tool integration and evidence/citation extraction for outputs.
+- [x] Implemented input/output safety guardrails and safety event logging.
+- [x] Surfaced refusal/sanitization outcomes in CLI and Streamlit UI.
+- [x] Implemented LLM-as-a-Judge scoring with multiple judging perspectives.
+- [x] Implemented batch evaluation reporting and saved outputs to `outputs/`.
+- [x] Added reproducible demo/export artifacts for grading.
+
+## Reproducible Demo Steps
+
+1. Activate environment and install dependencies:
+
+```bash
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+2. Ensure `.env` is configured. For the course vLLM endpoint, use:
+
+```bash
+OPENAI_BASE_URL=https://vllm.salt-lab.org/v1
+OPENAI_MODEL=Qwen/Qwen3-8B
+```
+
+3. Run a full interactive query in CLI:
+
+```bash
+python main.py --mode cli
+```
+
+4. Run Streamlit UI:
+
+```bash
+python main.py --mode web
+```
+
+5. Run batch evaluation:
+
+```bash
+python main.py --mode evaluate
+```
+
+## Grader-Facing Artifacts
+
+The following artifacts are generated and ready for inspection:
+
+- `outputs/sample_session.json`: full exported multi-agent session transcript (query, agent traces, metadata).
+- `outputs/sample_output.md`: synthesized answer artifact with source links.
+- `outputs/judge_representative_run.json`: raw judge prompts, raw model outputs, and parsed scores.
+- `outputs/evaluation_current_small.json`: latest clean evaluation artifact from current code/config.
+- `outputs/evaluation_current_small.txt`: quick summary for the latest clean evaluation artifact.
+- `outputs/evaluation_*.json`: older batch evaluation outputs (kept for reference/history).
+- `outputs/evaluation_summary_*.txt`: older aggregate summaries (kept for reference/history).
+
+## Notes for Grading
+
+- Safety policies are enforced at both input and output stages via `SafetyManager`, with event logs surfaced in CLI and Streamlit.
+- UI shows citations, agent traces, safety action (`allow`, `sanitize`, `refuse`), and safety event details.
+- Judge evaluates criteria using two independent perspectives (`strict_rubric` and `end_user_readability`) and aggregates scores.
 
 ## Notes
 

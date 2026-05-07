@@ -33,6 +33,7 @@ def create_model_client(config: Dict[str, Any]) -> OpenAIChatCompletionClient:
     """
     model_config = config.get("models", {}).get("default", {})
     provider = model_config.get("provider", "groq")
+    selected_model = os.getenv("OPENAI_MODEL") or model_config.get("name", "gpt-4o-mini")
     
     # Groq configuration (uses OpenAI-compatible API)
     if provider == "groq":
@@ -41,7 +42,7 @@ def create_model_client(config: Dict[str, Any]) -> OpenAIChatCompletionClient:
             raise ValueError("GROQ_API_KEY not found in environment")
         
         return OpenAIChatCompletionClient(
-            model=model_config.get("name", "llama-3.3-70b-versatile"),
+            model=selected_model if selected_model else "llama-3.3-70b-versatile",
             api_key=api_key,
             base_url="https://api.groq.com/openai/v1",
             model_capabilities={
@@ -59,7 +60,7 @@ def create_model_client(config: Dict[str, Any]) -> OpenAIChatCompletionClient:
             raise ValueError("OPENAI_API_KEY not found in environment")
         
         return OpenAIChatCompletionClient(
-            model=model_config.get("name", "gpt-4o-mini"),
+            model=selected_model,
             api_key=api_key,
             base_url=base_url,
         )
@@ -71,7 +72,7 @@ def create_model_client(config: Dict[str, Any]) -> OpenAIChatCompletionClient:
             raise ValueError("OPENAI_API_KEY not found in environment")
         
         return OpenAIChatCompletionClient(
-            model=model_config.get("name", "gpt-4o-mini"),
+            model=selected_model,
             api_key=api_key,
             base_url=base_url,
             model_info={
@@ -147,6 +148,7 @@ def create_researcher_agent(config: Dict[str, Any], model_client: OpenAIChatComp
         AutoGen AssistantAgent configured as a researcher with tool access
     """
     agent_config = config.get("agents", {}).get("researcher", {})
+    provider = config.get("models", {}).get("default", {}).get("provider", "groq").lower()
     
     # Load system prompt from config or use default
     default_system_message = """You are a Research Assistant. Your job is to gather high-quality information from academic papers and web sources.
@@ -165,22 +167,25 @@ You have access to tools for web search and paper search. When conducting resear
     else:
         system_message = default_system_message
 
-    # Wrap tools in FunctionTool
-    web_search_tool = FunctionTool(
-        web_search,
-        description="Search the web for articles, blog posts, and general information. Returns formatted search results with titles, URLs, and snippets."
-    )
-    
-    paper_search_tool = FunctionTool(
-        paper_search,
-        description="Search academic papers on Semantic Scholar. Returns papers with authors, abstracts, citation counts, and URLs. Use year_from parameter to filter recent papers."
-    )
+    # Some vLLM deployments do not support OpenAI "auto" tool-choice.
+    # Keep tools enabled for providers that support native tool calls.
+    researcher_tools = []
+    if provider != "vllm":
+        web_search_tool = FunctionTool(
+            web_search,
+            description="Search the web for articles, blog posts, and general information. Returns formatted search results with titles, URLs, and snippets."
+        )
+        paper_search_tool = FunctionTool(
+            paper_search,
+            description="Search academic papers on Semantic Scholar. Returns papers with authors, abstracts, citation counts, and URLs. Use year_from parameter to filter recent papers."
+        )
+        researcher_tools = [web_search_tool, paper_search_tool]
 
     # Create the researcher with tool access
     researcher = AssistantAgent(
         name="Researcher",
         model_client=model_client,
-        tools=[web_search_tool, paper_search_tool],
+        tools=researcher_tools,
         description="Gathers evidence from web and academic sources using search tools",
         system_message=system_message,
     )
