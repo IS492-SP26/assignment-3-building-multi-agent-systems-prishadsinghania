@@ -29,8 +29,12 @@ Starter scaffold for a multi-agent deep-research assistant on HCI topics. The re
 │   ├── example_queries.json           # Primary evaluation dataset
 │   └── test_queries_sample.json       # Alternate/fallback dataset
 ├── docs/
+│   ├── TECHNICAL_REPORT.md            # Draft technical report (copy to PDF/DOCX for submit)
 │   ├── evaluation_batch_summary.txt   # Committed evaluation aggregate (for graders)
 │   ├── evaluation_batch_summary.json # Same, machine-readable
+│   ├── sample_session.json            # Full multi-agent session (query, traces, metadata)
+│   ├── sample_output.md              # Final synthesized answer + source list (Writer turn)
+│   ├── judge_representative_run.json # Raw judge prompts/outputs + parsed scores (one query)
 │   └── TODO_AUDIT_AND_SOLUTIONS.md    # TODO inventory + guidance notes
 ├── config.yaml
 ├── requirements.txt
@@ -174,12 +178,12 @@ Committed in repo (no secrets):
 
 - `docs/evaluation_batch_summary.txt`: aggregate batch evaluation metrics for a full 10-query run.
 - `docs/evaluation_batch_summary.json`: same summary in JSON.
+- `docs/sample_session.json`: full exported multi-agent session (query, `conversation_history`, `metadata`, final `response` field from orchestrator).
+- `docs/sample_output.md`: Markdown artifact with the **Writer** synthesis and a separate **Sources** list (same run as `sample_session.json`; clarifies that `response` in the JSON is the last agent turn, often the Critic).
+- `docs/judge_representative_run.json`: representative query with raw judge **prompts**, **raw model outputs**, and **parsed** scores for both perspectives.
 
 Generated locally after runs (`outputs/` is gitignored — run evaluation to produce full detail):
 
-- `outputs/sample_session.json`: full exported multi-agent session transcript (query, agent traces, metadata).
-- `outputs/sample_output.md`: synthesized answer artifact with source links.
-- `outputs/judge_representative_run.json`: raw judge prompts, raw model outputs, and parsed scores.
 - `outputs/evaluation_current_small.json`: latest clean evaluation artifact from current code/config.
 - `outputs/evaluation_current_small.txt`: quick summary for the latest clean evaluation artifact.
 - `outputs/evaluation_*.json`: older batch evaluation outputs (kept for reference/history).
