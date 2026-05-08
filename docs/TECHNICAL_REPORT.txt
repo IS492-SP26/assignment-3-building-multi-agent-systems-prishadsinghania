@@ -1,12 +1,8 @@
 Technical Report — Assignment 3: Multi-Agent HCI Research Assistant
 ======================================================================
 
-Edit the byline below and adjust any prose to match your own voice before
-submitting the PDF version required by the course. This file is the plain-text
-copy for GitHub.
 
-
-Author: [Your Name]
+Author: Prisha Dipesh Singhania
 Course: IS492 — Spring 2026
 
 
