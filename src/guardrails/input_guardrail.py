@@ -149,7 +149,8 @@ class InputGuardrail:
                 violations.append({
                     "validator": "prompt_injection",
                     "reason": f"Potential prompt injection: {pattern}",
-                    "severity": "high"
+                    "severity": "high",
+                    "category": "harmful_content",
                 })
 
         return violations

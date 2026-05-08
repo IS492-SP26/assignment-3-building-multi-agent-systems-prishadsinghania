@@ -114,7 +114,7 @@ streamlit run src/ui/streamlit_app.py
 
 #### Streamlit demo screenshots
 
-These show the web UI with agent traces and safety log enabled, plus citations, sources, and safety status.
+These show the web UI with agent traces and safety log enabled, plus citations, sources, and safety status. For rubric items on **LLM judge in UI** and **refusal/sanitize**, capture additional screenshots using the judge panel and guardrail demos described under [Notes for Grading](#notes-for-grading).
 
 ![Streamlit: query, evaluation, and sidebar traces/safety](1.png)
 
@@ -192,8 +192,10 @@ Generated locally after runs (`outputs/` is gitignored — run evaluation to pro
 ## Notes for Grading
 
 - Safety policies are enforced at both input and output stages via `SafetyManager`, with event logs surfaced in CLI and Streamlit.
-- UI shows citations, agent traces, safety action (`allow`, `sanitize`, `refuse`), and safety event details.
-- Judge evaluates criteria using two independent perspectives (`strict_rubric` and `end_user_readability`) and aggregates scores.
+- Streamlit shows **LLM-as-a-Judge** results for interactive runs: enable “Run LLM-as-a-Judge after each search” in the sidebar, or run a normal query and click **Run LLM-as-a-Judge on latest run**. The expanded panel reports **overall weighted score** (same criteria as `config.yaml` / batch judge), per-criterion blended scores, and both perspectives (`strict_rubric`, `end_user_readability`).
+- For **guardrail evidence** beyond “Passed safety checks,” use the sidebar **Guardrail demos** (off-topic → `off_topic_queries`; toxic keyword → `harmful_content`; injection pattern → `harmful_content`) and expand **Safety details (policy categories)** on the refusal. For **sanitize** without a full agent run, open **Output guardrail checker** and run the default biased sample (category `personal_attacks`) or add PII for refusal.
+- UI shows citations, agent traces, safety action (`allow`, `sanitize`, `refuse`), and safety event details (including violation categories in the safety log when enabled).
+- Batch judge evaluates criteria using two independent perspectives and aggregates scores the same way as the Streamlit panel.
 
 ## Notes
 
