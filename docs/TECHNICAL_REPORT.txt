@@ -1,84 +1,167 @@
-Technical report — Assignment 3 (plain text for GitHub)
-========================================================
+Technical Report — Assignment 3: Multi-Agent HCI Research Assistant
+======================================================================
 
-Note on Word source
--------------------
-The file docs/Technical_Report.docx in this repository was empty (no extractable
-body text in the document XML), so a full prose report could not be converted
-automatically. For the course, submit your final 3–4 page write-up as required
-(usually PDF). You can paste that narrative below under “Student write-up” and
-commit updates, or keep this file as the implementation-focused summary only.
+Edit the byline below and adjust any prose to match your own voice before
+submitting the PDF version required by the course. This file is the plain-text
+copy for GitHub.
 
 
-Student write-up (optional — paste abstract + full sections here)
------------------------------------------------------------------
+Author: [Your Name]
+Course: IS492 — Spring 2026
 
-Abstract (~150 words):
-[ Paste from your final document. ]
+
+Abstract
+--------
+This project implements a multi-agent deep-research assistant for HCI-related
+topics using Microsoft AutoGen. Four coordinated agents — Planner, Researcher,
+Writer, and Critic — carry out planning, evidence gathering with real web and
+academic search tools, synthesis, and quality review. A SafetyManager applies
+input and output guardrails with configurable prohibited categories, refusal and
+sanitization behavior, and structured event logging surfaced in a Streamlit UI
+and CLI. Outputs are evaluated with LLM-as-a-Judge using five weighted criteria,
+each scored from two independent perspectives (strict academic rubric and
+end-user readability) and aggregated into an overall score. On a batch run of
+ten diverse queries, the system completed all runs successfully with a mean
+overall judge score of approximately 0.80, with highest marks on safety
+compliance and clarity and lower variance on evidence quality tied to retrieval
+coverage. The design trade-offs, limitations of heuristic guardrails and judge
+reliability, and directions for stronger moderation APIs are discussed below.
+
 
 1. System design and implementation
-[ Paste from your final document. ]
+-----------------------------------
+
+1.1 Objective and architecture
+The goal is to support interactive research questions on human-computer
+interaction (e.g., usability, accessibility, AI in education) through a
+modular pipeline rather than a single monolithic model. Configuration is
+centralized in config.yaml (agent roles, model providers, tool settings,
+safety policies, evaluation criteria, and timeouts). Entry points in main.py
+expose AutoGen mode, an interactive CLI, a Streamlit web UI, and a batch
+evaluation mode.
+
+The multi-agent workflow follows the assignment’s recommended pattern: task
+planning, evidence gathering, synthesis, and critique before the user sees a
+final answer. The Planner produces a structured research plan; the Researcher
+may call web_search (Tavily or Brave) and paper_search (Semantic Scholar) to
+retrieve sources; the Writer integrates findings into a cited narrative; the
+Critic reviews the draft. The orchestrator (AutoGenOrchestrator) runs this team,
+assembles conversation history and metadata, and passes the last substantive
+output through output safety validation before returning it to the UI.
+
+1.2 Models and tools
+Agent and judge models are configured for an OpenAI-compatible API (including
+vLLM). In the committed configuration, agents use OpenAI-compatible models with
+temperature 0.7 and the judge uses a lower temperature (0.3) for more stable
+scoring. Tools return structured results so citations and URLs can be
+extracted for display and for evidence-aware output checks.
+
+1.3 User interfaces
+The CLI provides a read-eval-print loop with formatted responses and safety
+information. Streamlit offers a query box, example and guardrail demo buttons,
+optional agent traces, an optional safety event log, citation expanders, an
+output-guardrail demonstration control, and an optional LLM-judge panel after
+each run (or on demand) so graders can see weighted scores and per-criterion
+reasoning without running the batch pipeline. Screenshots in images/ illustrate
+the live UI, including refusal and sanitization examples.
+
 
 2. Safety design
-[ Paste from your final document. ]
+----------------
+
+2.1 Policy categories
+Safety is implemented as a custom policy layer coordinated by SafetyManager,
+with explicit categories aligned to config: harmful_content, personal_attacks,
+misinformation, and off_topic_queries. Input validation checks length, toxic
+keywords, prompt-injection patterns, and topic keywords appropriate to an HCI
+research scope. Output validation checks for PII patterns, harmful phrases,
+optional consistency signals relative to retrieved sources, and biased language,
+with severity driving refusal (high) or sanitization (medium).
+
+2.2 Behavior and logging
+When input is unsafe, the orchestrator returns a refusal message and records
+metadata (e.g., refused flag, safety_action, safety_events with violation
+detail including category where defined). When output fails validation, the
+system may return sanitized text or a refusal string depending on severity.
+Events are logged for inspection in the UI and align with the assignment
+requirement to show when content was blocked or redacted.
+
 
 3. Evaluation setup and results
-[ Paste from your final document. ]
+---------------------------------
+
+3.1 Dataset and procedure
+Batch evaluation runs the full agent pipeline on data/example_queries.json
+(ten queries in the committed summary; limit configurable via
+evaluation.num_test_queries). Each successful response is scored by LLMJudge
+against five criteria — relevance, evidence_quality, factual_accuracy,
+safety_compliance, and clarity — with weights 0.25, 0.25, 0.20, 0.15, and 0.15.
+For each criterion, the judge averages scores from two prompt perspectives:
+strict_rubric (academic strictness) and end_user_readability (clarity and
+usefulness). Parsed JSON scores in [0, 1] are weighted into an overall score.
+
+3.2 Aggregate results (committed batch summary)
+For the run summarized in docs/evaluation_batch_summary.txt: all ten queries
+completed (success rate 100%). The overall mean judge score was 0.799.
+Per-criterion means were: relevance 0.790, evidence_quality 0.692,
+factual_accuracy 0.787, safety_compliance 0.997, clarity 0.805. The relatively
+high safety_compliance scores reflect conservative outputs and guardrails;
+evidence_quality scored slightly lower, which may indicate opportunities to
+improve retrieval diversity or citation grounding in future work.
+
+3.3 Representative artifacts
+For manual inspection, the repository includes docs/sample_session.json (full
+multi-agent transcript and metadata for one run), docs/sample_output.md (Writer
+synthesis plus source list), docs/judge_representative_run.json (raw prompts and
+raw model outputs for one query’s criterion), and interactive Streamlit judge
+readouts for at least one successful run as documented in README.md.
+
 
 4. Discussion and limitations
-[ Paste from your final document. ]
+-------------------------------
 
-5. References (APA)
-[ Paste from your final document. ]
+4.1 Strengths
+The decomposition into specialized agents improves transparency: users can
+inspect traces and see how planning and evidence steps relate to the final
+answer. Dual-perspective judging reduces single-rater bias compared to one
+static rubric. Integrating real search tools grounds answers better than
+purely parametric generation, subject to API availability and rate limits.
+
+4.2 Limitations
+Heuristic guardrails are not a replacement for production moderation services;
+keyword and regex policies can miss nuanced harms or over-block edge cases.
+The LLM judge is itself a model and may not agree with human graders; scores
+should be interpreted as relative diagnostics, not ground truth. Latency and
+cost grow with multi-agent turns and especially with full judge evaluation
+(five criteria times two perspectives per query). Tool failures are handled
+defensively but can still degrade answer quality if search returns thin
+results.
+
+4.3 Future work
+Promising extensions include retrieval-augmented citation verification, a
+lighter-weight judge mode for the UI, richer policy classifiers (e.g.,
+hosted moderation APIs), and automated regression tests from frozen evaluation
+snapshots.
 
 
-Implementation summary (from codebase; for graders)
-----------------------------------------------------
+5. References (APA 7)
+--------------------
 
-Topic and stack
-  HCI-oriented multi-agent research assistant. Orchestration uses Microsoft
-  AutoGen (see src/agents/autogen_agents.py, src/autogen_orchestrator.py).
-  Configuration: config.yaml; entry points: main.py (CLI, web, evaluate).
+Microsoft. (n.d.). AutoGen documentation. Retrieved May 7, 2026, from
+https://microsoft.github.io/autogen/
 
-Agents and workflow
-  Roles: Planner (research plan), Researcher (tools + evidence), Writer
-  (synthesis), Critic (quality check). Flow: plan → gather → write → critique,
-  with final response passed through output safety checks.
+Tavily AI. (n.d.). Tavily API documentation. Retrieved May 7, 2026, from
+https://docs.tavily.com/
 
-Tools
-  Web search (Tavily / Brave configurable), Semantic Scholar paper search,
-  citation helpers under src/tools/.
+Semantic Scholar. (n.d.). API overview. Retrieved May 7, 2026, from
+https://www.semanticscholar.org/product/api
 
-Safety and guardrails
-  SafetyManager coordinates InputGuardrail and OutputGuardrail
-  (src/guardrails/). Prohibited categories in config include: harmful_content,
-  personal_attacks, misinformation, off_topic_queries. Input may be blocked;
-  output may be refused (high severity) or sanitized (medium severity). Events
-  are logged and surfaced in CLI and Streamlit (src/ui/).
+World Wide Web Consortium. (n.d.). Web accessibility initiative. Retrieved
+May 7, 2026, from https://www.w3.org/WAI/
 
-User interfaces
-  CLI: src/ui/cli.py. Web: src/ui/streamlit_app.py — queries, citations,
-  traces, safety status, guardrail demos, optional LLM-as-a-Judge readout
-  after runs. Screenshots: images/1.png–5.png in the repo.
+( Add or replace references you actually cite in your final PDF; keep APA
+  formatting consistent with your bibliography. )
 
-Evaluation (LLM-as-a-Judge)
-  Judge: src/evaluation/judge.py — multiple criteria from config.yaml, each
-  scored under two perspectives (strict_rubric, end_user_readability),
-  aggregated to an overall weighted score. Batch runner: src/evaluation/evaluator.py;
-  dataset: data/example_queries.json.
 
-Committed batch summary (example run; see docs/evaluation_batch_summary.txt)
-  Total queries: 10 | Successful: 10 | Failed: 0
-  Overall average judge score: 0.799
-  By criterion (averages): relevance 0.790; evidence_quality 0.692;
-  factual_accuracy 0.787; safety_compliance 0.997; clarity 0.805
-
-Artifacts for grading (in repo)
-  docs/sample_session.json — full session JSON
-  docs/sample_output.md — Writer synthesis + sources
-  docs/judge_representative_run.json — raw judge prompts/outputs for one query
-  docs/evaluation_batch_summary.txt / .json — batch aggregates
-
-Reproducibility
-  See README.md: environment from .env.example, python main.py --mode
-  cli | web | evaluate.
+======================================================================
+End of report (plain-text version for version control)
