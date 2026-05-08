@@ -218,3 +218,6 @@ data/*.csv
 outputs/
 *.pkl
 *.pickle
+
+# Screenshot sources (canonical PNGs live in images/*.png)
+images/WhatsApp*.jpeg

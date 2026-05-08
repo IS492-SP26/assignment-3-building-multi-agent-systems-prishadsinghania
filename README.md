@@ -39,8 +39,12 @@ Starter scaffold for a multi-agent deep-research assistant on HCI topics. The re
 ├── config.yaml
 ├── requirements.txt
 ├── .env.example
-├── 1.png                              # Streamlit demo screenshot (see Running)
-├── 2.png                              # Streamlit demo screenshot (see Running)
+├── images/                            # Streamlit screenshots (see Running)
+│   ├── 1.png
+│   ├── 2.png
+│   ├── 3.png
+│   ├── 4.png
+│   └── 5.png
 ├── example_autogen.py
 └── main.py
 ```
@@ -114,11 +118,19 @@ streamlit run src/ui/streamlit_app.py
 
 #### Streamlit demo screenshots
 
-These show the web UI with agent traces and safety log enabled, plus citations, sources, and safety status. For rubric items on **LLM judge in UI** and **refusal/sanitize**, capture additional screenshots using the judge panel and guardrail demos described under [Notes for Grading](#notes-for-grading).
+Updated UI captures (judge toggle, guardrail demos, output checker, refusal/sanitize, etc.) live under `images/`. They are numbered in chronological order from the uploaded exports.
 
-![Streamlit: query, evaluation, and sidebar traces/safety](1.png)
+![Streamlit UI (1)](images/1.png)
 
-![Streamlit: citations, metrics, passed safety checks, traces, and safety log](2.png)
+![Streamlit UI (2)](images/2.png)
+
+![Streamlit UI (3)](images/3.png)
+
+![Streamlit UI (4)](images/4.png)
+
+![Streamlit UI (5)](images/5.png)
+
+See [Notes for Grading](#notes-for-grading) for what each rubric item should show in the UI.
 
 ### Batch evaluation scaffold
 
