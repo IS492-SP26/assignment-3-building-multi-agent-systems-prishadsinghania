@@ -1,0 +1,84 @@
+Technical report — Assignment 3 (plain text for GitHub)
+========================================================
+
+Note on Word source
+-------------------
+The file docs/Technical_Report.docx in this repository was empty (no extractable
+body text in the document XML), so a full prose report could not be converted
+automatically. For the course, submit your final 3–4 page write-up as required
+(usually PDF). You can paste that narrative below under “Student write-up” and
+commit updates, or keep this file as the implementation-focused summary only.
+
+
+Student write-up (optional — paste abstract + full sections here)
+-----------------------------------------------------------------
+
+Abstract (~150 words):
+[ Paste from your final document. ]
+
+1. System design and implementation
+[ Paste from your final document. ]
+
+2. Safety design
+[ Paste from your final document. ]
+
+3. Evaluation setup and results
+[ Paste from your final document. ]
+
+4. Discussion and limitations
+[ Paste from your final document. ]
+
+5. References (APA)
+[ Paste from your final document. ]
+
+
+Implementation summary (from codebase; for graders)
+----------------------------------------------------
+
+Topic and stack
+  HCI-oriented multi-agent research assistant. Orchestration uses Microsoft
+  AutoGen (see src/agents/autogen_agents.py, src/autogen_orchestrator.py).
+  Configuration: config.yaml; entry points: main.py (CLI, web, evaluate).
+
+Agents and workflow
+  Roles: Planner (research plan), Researcher (tools + evidence), Writer
+  (synthesis), Critic (quality check). Flow: plan → gather → write → critique,
+  with final response passed through output safety checks.
+
+Tools
+  Web search (Tavily / Brave configurable), Semantic Scholar paper search,
+  citation helpers under src/tools/.
+
+Safety and guardrails
+  SafetyManager coordinates InputGuardrail and OutputGuardrail
+  (src/guardrails/). Prohibited categories in config include: harmful_content,
+  personal_attacks, misinformation, off_topic_queries. Input may be blocked;
+  output may be refused (high severity) or sanitized (medium severity). Events
+  are logged and surfaced in CLI and Streamlit (src/ui/).
+
+User interfaces
+  CLI: src/ui/cli.py. Web: src/ui/streamlit_app.py — queries, citations,
+  traces, safety status, guardrail demos, optional LLM-as-a-Judge readout
+  after runs. Screenshots: images/1.png–5.png in the repo.
+
+Evaluation (LLM-as-a-Judge)
+  Judge: src/evaluation/judge.py — multiple criteria from config.yaml, each
+  scored under two perspectives (strict_rubric, end_user_readability),
+  aggregated to an overall weighted score. Batch runner: src/evaluation/evaluator.py;
+  dataset: data/example_queries.json.
+
+Committed batch summary (example run; see docs/evaluation_batch_summary.txt)
+  Total queries: 10 | Successful: 10 | Failed: 0
+  Overall average judge score: 0.799
+  By criterion (averages): relevance 0.790; evidence_quality 0.692;
+  factual_accuracy 0.787; safety_compliance 0.997; clarity 0.805
+
+Artifacts for grading (in repo)
+  docs/sample_session.json — full session JSON
+  docs/sample_output.md — Writer synthesis + sources
+  docs/judge_representative_run.json — raw judge prompts/outputs for one query
+  docs/evaluation_batch_summary.txt / .json — batch aggregates
+
+Reproducibility
+  See README.md: environment from .env.example, python main.py --mode
+  cli | web | evaluate.

@@ -29,13 +29,12 @@ Starter scaffold for a multi-agent deep-research assistant on HCI topics. The re
 │   ├── example_queries.json           # Primary evaluation dataset
 │   └── test_queries_sample.json       # Alternate/fallback dataset
 ├── docs/
-│   ├── TECHNICAL_REPORT.md            # Draft technical report (copy to PDF/DOCX for submit)
+│   ├── TECHNICAL_REPORT.txt           # Technical report (plain text; also submit PDF per course)
 │   ├── evaluation_batch_summary.txt   # Committed evaluation aggregate (for graders)
 │   ├── evaluation_batch_summary.json # Same, machine-readable
 │   ├── sample_session.json            # Full multi-agent session (query, traces, metadata)
 │   ├── sample_output.md              # Final synthesized answer + source list (Writer turn)
 │   ├── judge_representative_run.json # Raw judge prompts/outputs + parsed scores (one query)
-│   └── TODO_AUDIT_AND_SOLUTIONS.md    # TODO inventory + guidance notes
 ├── config.yaml
 ├── requirements.txt
 ├── .env.example
